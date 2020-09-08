@@ -67,6 +67,10 @@ serve() {
 		# We got a response, show this message in case we get stuck
 		window 'Closing connection' "Response received, but we're stuck, refresh your browser"
 		# If we aren't actually stuck the message won't appear long enough for the user to read
+
+		# We get stuck when nc doesn't quit after receiving an EOF on the fifo,
+		# which is implicitly sent upon redirecting the printf (or any other) output there
+		# so we have to convince the browser to close the TCP connection
 		# Only the Linux version of nc seems to be able to get stuck
 
 		error="$(echo $line | urlToQuery | getQuery error)"
@@ -82,7 +86,10 @@ serve() {
 			fi
 		else
 			echo $line | urlToQuery
-			printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\nAll done! Close browser tab.\r\n' >fifo
+			# We lie about the Content-Length (we report two bytes less, the CRLF)
+			# so hopefully the browser will cut us off and set us free
+			# (only needed on Linux, but doesn't hurt on BSD)
+			printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 28\r\n\r\nAll done! Close browser tab.\r\n' >fifo
 		fi
 		break
 	done
