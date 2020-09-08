@@ -8,7 +8,7 @@
 
 if test -z $1
 then
-	printf 'Usage:\n%s base-url [realm]\n\nExample:\n%s "http://[::1]:1080" demo.eduroam.no >eduroam.eap-config\n\nPlease note: base-url must be available from both your webbrowser and this script\n\n' "$0" "$0" >&2
+	printf '\033[0musage: %s base-url [realm]\n\nexample: \033[1m%s "http://[::1]:1080" demo.eduroam.no >eduroam.eap-config\033[0m\n\nPlease note: base-url must be available from both your webbrowser and this script,\nuse -R1080:localhost:1080 if you want to test a local server from remote\n\n' "$0" "$0" >&2
 	exit 2
 fi
 if test "$(uname)" = Linux
@@ -19,11 +19,13 @@ fi
 
 URL="$1"
 SCOPE="eap-metadata"
-PORT=0
+PORT="0$3"
 while [ $PORT -lt 1024 -o $PORT -gt 65535 ]
 do
 	PORT=$RANDOM
+	test -z "$PORT" && PORT=$(tr -cd '0123456789' </dev/urandom | head -c5)
 done
+PORT=$(echo $PORT | sed -es/\^0\*//)
 CLIENT_ID="app.geteduroam.sh"
 REDIRECT_URI="http://127.0.0.1:$PORT/"
 
