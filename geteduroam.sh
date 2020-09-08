@@ -11,11 +11,6 @@ then
 	printf '\033[0musage: %s base-url [realm]\n\nexample: \033[1m%s "http://[::1]:1080" demo.eduroam.no >eduroam.eap-config\033[0m\n\nPlease note: base-url must be available from both your webbrowser and this script,\nuse -R1080:localhost:1080 if you want to test a local server from remote\n\n' "$0" "$0" >&2
 	exit 2
 fi
-if test "$(uname)" = Linux
-then
-	printf "\033[0;1;37;41m -- WARNING: This script has known issues with netcat on Linux, please run on FreeBSD or MacOS -- \033[0m\n" >&2
-	sleep 2
-fi
 
 URL="$1"
 SCOPE="eap-metadata"
@@ -58,37 +53,50 @@ parseQuery() {
 	tr \& \\n
 }
 getQuery() {
-	parseQuery | fgrep "${1}=" | cut -d= -f2-
+	parseQuery | grep -F "${1}=" | cut -d= -f2-
 }
 getJson() {
-	fgrep "    \"${1}\": " | cut -d\" -f4- | sed -e's/",\{0,1\}$//'
+	grep -F "    \"${1}\": " | cut -d\" -f4- | sed -e's/",\{0,1\}$//'
 }
 
 serve() {
 	[ -p fifo ] || mkfifo fifo
-	cat fifo | ( nc -l -p $PORT 2>/dev/null|| nc -l $PORT ) | while read line
+	answered=0
+	cat fifo | ( nc -Clp $PORT 2>/dev/null || nc -l $PORT ) | while read line
 	do
+		# We got a response, show this message in case we get stuck
+		window 'Closing connection' "Response received, but we're stuck, refresh your browser"
+		# If we aren't actually stuck the message won't appear long enough for the user to read
+		# Only the Linux version of nc seems to be able to get stuck
+
 		error="$(echo $line | urlToQuery | getQuery error)"
 		if [ -n "$error" ]
 		then
-			printf 'HTTP/1.0 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\n%s\r\n' "$error" >fifo
-			printf '\033[1;41m%s\033[0m' "$error" >&2
+			if [ "$error" = 'access_denied' ]
+			then
+				printf 'HTTP/1.0 403 Forbidden\r\nContent-Type: text/plain\r\n\r\n%s\r\n' "$error" >fifo
+				window 'Access denied' "$(printf '\033[31mThe user refused access to this application, press ^C to exit')"
+			else
+				printf 'HTTP/1.0 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\n%s\r\n' "$error" >fifo
+				window 'Error' "$(printf '\033[31mAn unexpected error occurred: \033[1m%s\033[0;31m, press ^C to exit' "$error")"
+			fi
+		else
+			echo $line | urlToQuery
+			printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\nAll done! Close browser tab.\r\n' >fifo
 		fi
-		echo $line | urlToQuery
-		printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\nAll done! Close browser tab.' >fifo
 		break
 	done
-	rm fifo
+	[ -p fifo ] && rm fifo
 }
 
 redirect() { # $1 = url
 	[ -p fifo ] || mkfifo fifo
-	cat fifo | ( nc -l -p $PORT 2>/dev/null|| nc -l $PORT ) | while read line
+	cat fifo | ( nc -Clp $PORT 2>/dev/null || nc -l $PORT ) | while read line
 	do
 		printf 'HTTP/1.0 302 Found\r\nLocation: %s\r\n\r\n%s\r\n' "$1" "$1" >fifo
 		break
 	done
-	rm fifo
+	[ -p fifo ] && rm fifo
 }
 
 window() { # $1 = title, $2 = text
@@ -119,20 +127,22 @@ printf '\n\n\n\n\n' >&2
 if test -z "$access_token"
 then
 	code_challenge="$(printf "$CODE_VERIFIER" | sha256bin | urlb64)"
-	separator=$(echo "$AUTHORIZE_URL" | fgrep -q '?' && printf '&' || printf '?')
+	separator=$(echo "$AUTHORIZE_URL" | grep -Fq '?' && printf '&' || printf '?')
 	authorize_url="${AUTHORIZE_URL}${separator}response_type=code&code_challenge_method=S256&scope=$SCOPE&code_challenge=$code_challenge&redirect_uri=$REDIRECT_URI&client_id=$CLIENT_ID&state=$STATE"
-	window 'Please visit the following URL in your webbrowser' "$REDIRECT_URI"
+	window 'Please visit the following URL in your webbrowser' "$(echo "\033[4;34m$REDIRECT_URI")"
 	redirect "$authorize_url"
 	window 'Please log in and approve this application in your webbrowser' 'Waiting for response...'
 	code=
 	while [ -z "$code" ]
 	do
 		response="$(serve)"
+		window 'Please wait' 'Parsing response'
 		code="$(echo $response | getQuery code)"
 		state="$(echo $response | getQuery state)"
 	done
-	rm -f "$REFRESH_TOKEN_FILENAME"
 
+	# We have received an access token, so we must assume our refresh_token is burned (if we used one)
+	rm -f "$REFRESH_TOKEN_FILENAME"
 
 	window 'Please wait' "Fetching token from $TOKEN_URL"
 	token_data="$(curl \
@@ -152,7 +162,6 @@ fi
 
 window 'Please wait' "Fetching eap-config from $GENERATE_URL"
 curl --fail --silent --show-error -HAuthorization:"Bearer $access_token" "$GENERATE_URL"
-
 
 printf '\n\n\n\n\n' >&2
 window 'Success' 'Successfully downloaded eap-config file'
