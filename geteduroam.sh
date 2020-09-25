@@ -28,18 +28,18 @@ if test -n "$2"
 then
 	REALM_PARAM="?realm=$2"
 fi
+test "$(echo "$URL" | head -c8)" == 'https://' \
+	|| test "$(echo "$URL" | head -c8)" == 'http://' \
+	|| URL="https://$URL"
+
 AUTHORIZE_URL="$URL/oauth/authorize/$REALM_PARAM"
 TOKEN_URL="$URL/oauth/token/$REALM_PARAM"
 GENERATE_URL="$URL/api/eap-config/$REALM_PARAM"
-
 REFRESH_TOKEN_FILENAME=".geteduroam-refresh-$(echo "$TOKEN_URL" | openssl sha256 | tail -c16)"
 
 CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_.~' </dev/urandom | head -c128)"
 #CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_' </dev/urandom | head -c43)"
 STATE="$(LC_ALL=C tr -cd '[:alnum:]_-' </dev/urandom | head -c43)"
-
-test "$(echo "$URL" | head -c8)" == 'https://' || URL="https://$URL"
-
 
 urlb64() {
 	openssl base64 | sed -es@/@_@g -es@+@-@g -es@=@@
