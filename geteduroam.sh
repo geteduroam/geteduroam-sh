@@ -24,7 +24,7 @@ PORT=$(echo $PORT | sed -es/\^0\*//)
 CLIENT_ID="app.geteduroam.sh"
 REDIRECT_URI="http://127.0.0.1:$PORT/"
 
-if test -n $2
+if test -n "$2"
 then
 	REALM_PARAM="?realm=$2"
 fi
@@ -37,6 +37,8 @@ REFRESH_TOKEN_FILENAME=".geteduroam-refresh-$(echo "$TOKEN_URL" | openssl sha256
 CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_.~' </dev/urandom | head -c128)"
 #CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_' </dev/urandom | head -c43)"
 STATE="$(LC_ALL=C tr -cd '[:alnum:]_-' </dev/urandom | head -c43)"
+
+test "$(echo "$URL" | head -c8)" == 'https://' || URL="https://$URL"
 
 
 urlb64() {
