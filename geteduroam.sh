@@ -12,6 +12,9 @@ then
 	exit 2
 fi
 
+# On MacOS, use the system browser
+[ -x /usr/bin/open ] && BROWSER=/usr/bin/open
+
 URL="$1"
 SCOPE="eap-metadata"
 PORT="0$3"
