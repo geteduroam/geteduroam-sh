@@ -82,14 +82,13 @@ listen() {
 	nc -q1 -lp $PORT 2>/dev/null || nc -l $PORT
 }
 fifo() {
-	# If the fifo doesn't exist, create it and make a trap to remove it again
 	if [ \! -p fifo ]
 	then
 		mkfifo fifo
-		trap "rm fifo" EXIT
 	fi
 	cat fifo
 }
+trap "rm fifo" EXIT
 
 serve() {
 	[ -p fifo ] || mkfifo fifo
