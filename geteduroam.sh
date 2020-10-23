@@ -20,7 +20,7 @@ do
 	PORT=$RANDOM
 	[ -z "$PORT" ] && PORT=$(tr -cd '0123456789' </dev/urandom | head -c5)
 done
-PORT=$(echo $PORT | sed -es/\^0\*//)
+PORT=$(printf "%s" $PORT | sed -es/\^0\*//)
 CLIENT_ID="app.geteduroam.sh"
 REDIRECT_URI="http://127.0.0.1:$PORT/"
 
@@ -35,7 +35,7 @@ fi
 AUTHORIZE_URL="$URL/oauth/authorize/$REALM_PARAM"
 TOKEN_URL="$URL/oauth/token/$REALM_PARAM"
 GENERATE_URL="$URL/api/eap-config/$REALM_PARAM"
-REFRESH_TOKEN_FILENAME=".geteduroam-refresh-$(echo "$TOKEN_URL" | openssl sha256 | tail -c16)"
+REFRESH_TOKEN_FILENAME=".geteduroam-refresh-$(printf "%s" "$TOKEN_URL" | openssl sha256 | tail -c16)"
 
 CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_.~' </dev/urandom | head -c128)"
 #CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_' </dev/urandom | head -c43)"
@@ -75,7 +75,7 @@ serve() {
 		# so we have to convince the browser to close the TCP connection
 		# Only the Linux version of nc seems to be able to get stuck
 
-		error="$(echo $line | urlToQuery | getQuery error)"
+		error="$(printf "%s" "$line" | urlToQuery | getQuery error)"
 		if [ -n "$error" ]
 		then
 			if [ "$error" = 'access_denied' ]
@@ -87,7 +87,7 @@ serve() {
 				window 'Error' "$(printf '\033[31mAn unexpected error occurred: \033[1m%s\033[0;31m, press ^C to exit' "$error")"
 			fi
 		else
-			echo $line | urlToQuery
+			printf "%s" "$line" | urlToQuery
 			# We lie about the Content-Length (we report two bytes less, the CRLF)
 			# so hopefully the browser will cut us off and set us free
 			# (only needed on Linux, but doesn't hurt on BSD)
@@ -128,15 +128,15 @@ then
 		--data-urlencode grant_type=refresh_token \
 		--data-urlencode "refresh_token=$refresh_token" \
 		"$TOKEN_URL")" || true
-	access_token=$(echo "$token_data" | getJson access_token)
-	refresh_token=$(echo "$token_data" | getJson refresh_token)
+	access_token=$(printf "%s" "$token_data" | getJson access_token)
+	refresh_token=$(printf "%s" "$token_data" | getJson refresh_token)
 fi
 
 printf '\n\n\n\n\n' >&2
 if [ -z "$access_token" ]
 then
 	code_challenge="$(printf "$CODE_VERIFIER" | sha256bin | urlb64)"
-	separator=$(echo "$AUTHORIZE_URL" | grep -Fq '?' && printf '&' || printf '?')
+	separator=$(printf "%s" "$AUTHORIZE_URL" | grep --fixed-strings --quiet '?' && printf '&' || printf '?')
 	authorize_url="${AUTHORIZE_URL}${separator}response_type=code&code_challenge_method=S256&scope=$SCOPE&code_challenge=$code_challenge&redirect_uri=$REDIRECT_URI&client_id=$CLIENT_ID&state=$STATE"
 	window 'Please visit the following URL in your webbrowser' "$(echo "\033[4;34m$REDIRECT_URI")"
 	redirect "$authorize_url"
@@ -146,8 +146,8 @@ then
 	do
 		response="$(serve)"
 		window 'Please wait' 'Parsing response'
-		code="$(echo $response | getQuery code)"
-		state="$(echo $response | getQuery state)"
+		code="$(printf "%s" $response | getQuery code)"
+		state="$(printf "%s" $response | getQuery state)"
 	done
 
 	# We have received an access token, so we must assume our refresh_token is burned (if we used one)
@@ -165,8 +165,8 @@ then
 		--data-urlencode "code=$code" \
 		--data-urlencode "code_verifier=$CODE_VERIFIER" \
 		"$TOKEN_URL")"
-	access_token=$(echo "$token_data" | getJson access_token)
-	refresh_token=$(echo "$token_data" | getJson refresh_token)
+	access_token=$(printf "%s" "$token_data" | getJson access_token)
+	refresh_token=$(printf "%s" "$token_data" | getJson refresh_token)
 fi
 
 window 'Please wait' "Fetching eap-config from $GENERATE_URL"
@@ -177,5 +177,5 @@ window 'Success' 'Successfully downloaded eap-config file'
 
 if [ -n "$refresh_token" ]
 then
-	echo "$refresh_token" > "$REFRESH_TOKEN_FILENAME"
+	printf "%s" "$refresh_token" > "$REFRESH_TOKEN_FILENAME"
 fi
