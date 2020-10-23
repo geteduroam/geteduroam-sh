@@ -41,7 +41,6 @@ GENERATE_URL="$URL/api/eap-config/$REALM_PARAM"
 REFRESH_TOKEN_FILENAME=".geteduroam-refresh-$(printf "%s" "$TOKEN_URL" | openssl sha256 | tail -c16)"
 
 CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_.~' </dev/urandom | head -c128)"
-#CODE_VERIFIER="$(LC_ALL=C tr -cd '[:alnum:]-_' </dev/urandom | head -c43)"
 STATE="$(LC_ALL=C tr -cd '[:alnum:]_-' </dev/urandom | head -c43)"
 
 urlb64() {
