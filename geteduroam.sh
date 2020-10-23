@@ -50,24 +50,27 @@ urlb64() {
 	openssl base64 | sed -es@/@_@g -es@+@-@g -es@=@@
 }
 sha256bin() {
+	# xxd is in MacOS base, but so is OpenSSL..
 	#shasum -a256 | head -c64 | xxd -r -p
 	openssl sha256 -binary
 }
 urlToQuery() {
+	# Get the query part of the URL,
+	# aka show everything from the first question mark until the first space
 	cut -d\? -f2 | cut -d\  -f1
 }
-getQuery() {
+getQuery() { # $1 = key
 	# tr: Convert foo=bar&pie=good to foo=bar\npie=good
 	# grep: takes the correct line
 	# head: ensure no double matches
 	# cut: remove the key so only the value remains
 	tr \& \\n | grep --fixed-strings "${1}=" | head -n1 | cut -d= -f2-
 }
-getJson() {
-	if jq --version >/dev/null 2>/dev/null
+getJson() { # $1 = key
+	if jq --version 2>&1 >/dev/null
 	then
 		jq --raw-output ".$1"
-	elif json_pp -v >/dev/null 2>/dev/null
+	elif json_pp -v 2>&1 >/dev/null
 	then
 		# This is not a reliable JSON parser, we still get JSON escaped strings,
 		# and multiline would fail horribly.
@@ -75,11 +78,11 @@ getJson() {
 		json_pp | grep --fixed-strings "   \"${1}\" : " | cut -d\" -f4- | sed -e's/",\{0,1\}$//'
 	fi
 }
-listen() {
+listen() { # $1 = port
 	# We're not sure if we have GNU Linux or BSD nc, and it's not easy to probe either
 	# but we can try the GNU Linux version first, with flags that will make the BSD
 	# version terminate rightaway
-	nc -q1 -lp $PORT 2>/dev/null || nc -l $PORT
+	nc -q1 -lp "$1" 2>/dev/null || nc -l "$1"
 }
 fifo() {
 	if [ \! -p fifo ]
