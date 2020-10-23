@@ -58,7 +58,17 @@ getQuery() {
 	parseQuery | grep -F "${1}=" | cut -d= -f2-
 }
 getJson() {
-	grep -F "    \"${1}\": " | cut -d\" -f4- | sed -e's/",\{0,1\}$//'
+	if jq --version >/dev/null 2>/dev/null
+	then
+		jq --raw-output ".$1"
+	elif json_pp -v >/dev/null 2>/dev/null
+	then
+		# This is not a reliable JSON parser, we still get JSON escaped strings,
+		# and multiline would fail horribly.
+		# But it's good enough for our use.
+		json_pp | grep --fixed-strings "   \"${1}\" : " | cut -d\" -f4- | sed -e's/",\{0,1\}$//'
+	fi
+}
 }
 
 serve() {
@@ -115,6 +125,12 @@ window() { # $1 = title, $2 = text
 set -e
 
 [ -f "$REFRESH_TOKEN_FILENAME" ] && refresh_token="$(cat "$REFRESH_TOKEN_FILENAME")"
+
+if [ "$(echo '{"foo":"test"}' | getJson foo)" != 'test' ]
+then
+	printf '\033[1;41;37m Missing JSON parser   \033[0m\n\033[47;30m Tried \033[34mjq\033[30m and \033[34mjson_pp\033[30m. \033[0m\n\n'
+	exit 2
+fi
 
 if [ -n "$refresh_token" ]
 then
