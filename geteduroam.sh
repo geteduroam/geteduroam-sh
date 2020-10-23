@@ -54,11 +54,12 @@ sha256bin() {
 urlToQuery() {
 	cut -d\? -f2 | cut -d\  -f1
 }
-parseQuery() {
-	tr \& \\n
-}
 getQuery() {
-	parseQuery | grep -F "${1}=" | cut -d= -f2-
+	# tr: Convert foo=bar&pie=good to foo=bar\npie=good
+	# grep: takes the correct line
+	# head: ensure no double matches
+	# cut: remove the key so only the value remains
+	tr \& \\n | grep --fixed-strings "${1}=" | head -n1 | cut -d= -f2-
 }
 getJson() {
 	if jq --version >/dev/null 2>/dev/null
