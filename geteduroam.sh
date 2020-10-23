@@ -172,7 +172,8 @@ then
 	code_challenge="$(printf "$CODE_VERIFIER" | sha256bin | urlb64)"
 	separator=$(printf "%s" "$AUTHORIZE_URL" | grep --fixed-strings --quiet '?' && printf '&' || printf '?')
 	authorize_url="${AUTHORIZE_URL}${separator}response_type=code&code_challenge_method=S256&scope=$SCOPE&code_challenge=$code_challenge&redirect_uri=$REDIRECT_URI&client_id=$CLIENT_ID&state=$STATE"
-	window 'Please visit the following URL in your webbrowser' "$(echo "\033[4;34m$REDIRECT_URI")"
+	[ -n "$BROWSER" ] && "$BROWSER" "$REDIRECT_URI" || \
+		window 'Please visit the following URL in your webbrowser' "$(printf "\033[4;34m$REDIRECT_URI")"
 	redirect "$authorize_url"
 	window 'Please log in and approve this application in your webbrowser' 'Waiting for response...'
 	code=
