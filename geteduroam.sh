@@ -22,6 +22,9 @@ do
 done
 PORT=$(printf "%s" $PORT | sed -es/\^0\*//)
 CLIENT_ID="app.geteduroam.sh"
+
+# nc may not be able to listen on IPv6,
+# but IPv4 works virtually always
 REDIRECT_URI="http://127.0.0.1:$PORT/"
 
 if [ -n "$2" ]
@@ -69,12 +72,26 @@ getJson() {
 		json_pp | grep --fixed-strings "   \"${1}\" : " | cut -d\" -f4- | sed -e's/",\{0,1\}$//'
 	fi
 }
+listen() {
+	# We're not sure if we have GNU Linux or BSD nc, and it's not easy to probe either
+	# but we can try the GNU Linux version first, with flags that will make the BSD
+	# version terminate rightaway
+	nc -q1 -lp $PORT 2>/dev/null || nc -l $PORT
+}
+fifo() {
+	# If the fifo doesn't exist, create it and make a trap to remove it again
+	if [ \! -p fifo ]
+	then
+		mkfifo fifo
+		trap "rm fifo" EXIT
+	fi
+	cat fifo
 }
 
 serve() {
 	[ -p fifo ] || mkfifo fifo
 	answered=0
-	cat fifo | ( nc -Clp $PORT 2>/dev/null || nc -l $PORT ) | while read line
+	fifo | listen $PORT | while read line
 	do
 		# We got a response, show this message in case we get stuck
 		window 'Closing connection' "Response received, but we're stuck, refresh your browser"
@@ -99,23 +116,24 @@ serve() {
 		else
 			printf "%s" "$line" | urlToQuery
 			# We lie about the Content-Length (we report two bytes less, the CRLF)
-			# so hopefully the browser will cut us off and set us free
-			# (only needed on Linux, but doesn't hurt on BSD)
+			# so the browser will hopefully disconnect, this will speed up the process
+			# because nc will terminate quicker
 			printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 28\r\n\r\nAll done! Close browser tab.\r\n' >fifo
 		fi
 		break
 	done
-	[ -p fifo ] && rm fifo
 }
 
 redirect() { # $1 = url
-	[ -p fifo ] || mkfifo fifo
-	cat fifo | ( nc -Clp $PORT 2>/dev/null || nc -l $PORT ) | while read line
+	fifo | listen $PORT | while read line
+	len=$(printf "%s" "$1" | wc -c)
 	do
-		printf 'HTTP/1.0 302 Found\r\nLocation: %s\r\n\r\n%s\r\n' "$1" "$1" >fifo
+		# We lie about the Content-Length (we report two bytes less, the CRLF)
+		# so the browser will hopefully disconnect, this will speed up the process
+		# because nc will terminate quicker
+		printf 'HTTP/1.0 302 Found\r\nLocation: %s\r\nContent-Length: %s\r\n\r\n%s\r\n' "$1" "$len" "$1" >fifo
 		break
 	done
-	[ -p fifo ] && rm fifo
 }
 
 window() { # $1 = title, $2 = text
