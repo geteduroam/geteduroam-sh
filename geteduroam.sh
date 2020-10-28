@@ -69,7 +69,7 @@ getQuery() { # $1 = key
 getJson() { # $1 = key
 	if jq --version 2>&1 >/dev/null
 	then
-		jq --raw-output ".$1"
+		jq ".$1" | jq --raw-output 'select(type == "string")'
 	elif json_pp -v 2>&1 >/dev/null
 	then
 		# This is not a reliable JSON parser, we still get JSON escaped strings,
@@ -186,8 +186,8 @@ then
 	do
 		response="$(serve)"
 		window 'Please wait' 'Parsing response'
-		code="$(printf "%s" $response | getQuery code)"
-		state="$(printf "%s" $response | getQuery state)"
+		code="$(printf "%s" "$response" | getQuery code)"
+		state="$(printf "%s" "$response" | getQuery state)"
 	done
 
 	# We have received an access token, so we must assume our refresh_token is burned (if we used one)
