@@ -6,7 +6,7 @@
 # LICENSE: BSD-3-Clause
 # http://opensource.org/licenses/BSD-3-Clause
 
-if [ -z $1 ]
+if [ -z "$1" ]
 then
 	printf '\033[0musage: %s base-url [realm]\n\nexample: \033[1m%s "http://[::1]:1080" demo.eduroam.no >eduroam.eap-config\033[0m\n\nPlease note: base-url must be available from both your webbrowser and this script,\nuse -R1080:localhost:1080 if you want to test a local server from remote\n\n' "$0" "$0" >&2
 	exit 2
@@ -18,12 +18,14 @@ fi
 URL="$1"
 SCOPE="eap-metadata"
 PORT="0$3"
-while [ $PORT -lt 1024 -o $PORT -gt 65535 ]
+while [ "$PORT" -lt 1024 ] || [ "$PORT" -gt 65535 ]
 do
+	# shellcheck disable=SC2039
+	# # We handle if $RANDOM doesn't work
 	PORT=$RANDOM
-	[ -z "$PORT" ] && PORT=$(tr -cd '0123456789' </dev/urandom | head -c5)
+	[ -z "$PORT" ] && PORT="$(tr -cd '0123456789' </dev/urandom | head -c5)"
 done
-PORT=$(printf %s $PORT | sed -es/\^0\*//)
+PORT=$(printf %s "$PORT" | sed -es/^0\*//)
 CLIENT_ID="app.geteduroam.sh"
 
 # nc may not be able to listen on IPv6,
@@ -34,8 +36,8 @@ if [ -n "$2" ]
 then
 	REALM_PARAM="?realm=$2"
 fi
-[ "$(printf %s "$URL" | head -c8)" == 'https://' ] \
-	|| [ "$(printf %s "$URL" | head -c7)" == 'http://' ] \
+[ "$(printf %s "$URL" | head -c8)" = 'https://' ] \
+	|| [ "$(printf %s "$URL" | head -c7)" = 'http://' ] \
 	|| URL="https://$URL"
 
 AUTHORIZE_URL="$URL/oauth/authorize/$REALM_PARAM"
@@ -67,10 +69,10 @@ getQuery() { # $1 = key
 	tr \& \\n | grep --fixed-strings "${1}=" | head -n1 | cut -d= -f2-
 }
 getJson() { # $1 = key
-	if jq --version 2>/dev/null >&2
+	if jq --version >/dev/null 2>&1
 	then
 		jq ".$1" | jq --raw-output 'select(type == "string")'
-	elif json_pp -v 2>/dev/null >&2
+	elif json_pp -v >/dev/null 2>&1
 	then
 		# This is not a reliable JSON parser, we still get JSON escaped strings,
 		# and multiline would fail horribly.
@@ -85,6 +87,10 @@ listen() { # $1 = port
 	nc -q1 -lp "$1" 2>/dev/null || nc -l "$1"
 }
 fifo() {
+	# shellcheck disable=SC2050
+	# # It's not constant, it checks the filesystem
+	# shellcheck disable=SC2057
+	# # -p means named pipe
 	if [ \! -p fifo ]
 	then
 		mkfifo fifo
@@ -95,8 +101,7 @@ trap "rm -f fifo" EXIT
 
 serve() {
 	[ -p fifo ] || mkfifo fifo
-	answered=0
-	fifo | listen $PORT | while read line
+	fifo | listen "$PORT" | while read -r line
 	do
 		# We got a response, show this message in case we get stuck
 		window 'Closing connection' "Response received, but we're stuck, refresh your browser"
@@ -130,7 +135,7 @@ serve() {
 }
 
 redirect() { # $1 = url
-	fifo | listen $PORT | while read line
+	fifo | listen "$PORT" | while read -r line
 	len=$(printf %s "$1" | wc -c)
 	do
 		# We lie about the Content-Length (we report two bytes less, the CRLF)
@@ -174,11 +179,13 @@ fi
 printf '\n\n\n\n\n' >&2
 if [ -z "$access_token" ]
 then
-	code_challenge="$(printf "$CODE_VERIFIER" | sha256bin | urlb64)"
+	code_challenge="$(printf %s "$CODE_VERIFIER" | sha256bin | urlb64)"
 	separator=$(printf %s "$AUTHORIZE_URL" | grep --fixed-strings --quiet '?' && printf '&' || printf '?')
 	authorize_url="${AUTHORIZE_URL}${separator}response_type=code&code_challenge_method=S256&scope=$SCOPE&code_challenge=$code_challenge&redirect_uri=$REDIRECT_URI&client_id=$CLIENT_ID&state=$STATE"
+	# shellcheck disable=SC2015
+	# # This is not if then else, but fallback
 	[ -n "$BROWSER" ] && "$BROWSER" "$REDIRECT_URI" || \
-		window 'Please visit the following URL in your webbrowser' "$(printf "\033[4;34m$REDIRECT_URI")"
+		window 'Please visit the following URL in your webbrowser' "$(printf "\033[4;34m%s" "$REDIRECT_URI")"
 	redirect "$authorize_url"
 	window 'Please log in and approve this application in your webbrowser' 'Waiting for response...'
 	code=
@@ -186,8 +193,13 @@ then
 	do
 		response="$(serve)"
 		window 'Please wait' 'Parsing response'
-		code="$(printf %s "$response" | getQuery code)"
-		state="$(printf %s "$response" | getQuery state)"
+		state="$(printf "%s" "$response" | getQuery state)"
+		if [ "$state" = "$STATE" ]
+		then
+			code="$(printf "%s" "$response" | getQuery code)"
+		else
+			window 'Failure' 'Unexpected state - auth flows are mixed up'
+		fi
 	done
 
 	# We have received an access token, so we must assume our refresh_token is burned (if we used one)
