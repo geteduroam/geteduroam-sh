@@ -14,12 +14,22 @@ mkdir -p ~/.config/geteduroam
 
 get_first_tag_content() { # $1 = tag, stdin=XML
 	tag="$1"
+	# remove anything after </$tag> so only the first one is returned
 	sed -e "s@</${tag}>.*@@" | get_tag_content "$tag"
 }
 
 get_tag_content() { # $1 = tag, stdin=XML
 	tag="$1"
-	sed -e "s@<${tag}[^>]*>@\n<${tag}>@g" -e "s@</${tag}>@</${tag}>\n@g" \
+	# on MacOS Mojave we found that sed cannot use \n in the replacement,
+	# so we replace with \r instead and then use tr to convert \r to \n
+
+	# assume input is one line
+	# add newline before <$tag> or <$tag foo="blabla">
+	# add newline after </$tag>
+	# grep for <$tag> or <$tag foo="blabla"> (remove lines without it)
+	# remove <$tag>, </$tag> and <$tag foo="blabla">
+	sed -e "s@<${tag}[^>]*>@"$'\r'"<${tag}>@g" -e "s@</${tag}>@</${tag}>"$'\r'"@g" \
+		| tr '\r' '\n' \
 		| grep "<${tag}.*>." \
 		| sed -e "s@^<${tag}[^>]*>@@" -e "s@</${tag}>\$@@"
 }
