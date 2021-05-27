@@ -101,6 +101,7 @@ do
 	fi
 done)"
 type="$(parse_auth_method "$authMethod")"
+server_ids="$(printf %s "$authMethod" | get_tag_content ServerID)"
 test -n "$type" || { printf %s\\n 'Unsupported eap-config' >&2; exit 2; }
 
 
@@ -149,10 +150,10 @@ then
 	pass="$(test -n "$passphrase" && printf -- '-passin pass:%s -passout pass:%s' "$passphrase" "$passphrase" || printf -- -nodes)"
 	# shellcheck disable=SC2086
 	# We explicitly use $pass for multiple arguments
-	openssl pkcs12 $pass -in ~/.config/geteduroam/tmp-"$mainssid".p12 -out ~/.config/geteduroam/cert-"$mainssid".pem -clcerts -nokeys
+	openssl pkcs12 $pass -in ~/.config/geteduroam/tmp-"$mainssid".p12 -out ~/.config/geteduroam/cert-"$mainssid".pem -clcerts -nokeys 2>/dev/null
 	# shellcheck disable=SC2086
 	# We explicitly use $pass for multiple arguments
-	openssl pkcs12 $pass -in ~/.config/geteduroam/tmp-"$mainssid".p12 -out ~/.config/geteduroam/key-"$mainssid".pem -nocerts
+	openssl pkcs12 $pass -in ~/.config/geteduroam/tmp-"$mainssid".p12 -out ~/.config/geteduroam/key-"$mainssid".pem -nocerts 2>/dev/null
 fi
 rm -f ~/.config/geteduroam/tmp-"$mainssid".p12
 
@@ -163,8 +164,14 @@ do
 	case "$type" in
 		'TLS')
 			nmcli connection add \
-				type wifi con-name "$ssid" ifname "$wifi_if" ssid "$ssid" -- \
-				wifi-sec.key-mgmt wpa-eap 802-1x.eap tls 802-1x.identity "$identity" \
+				type wifi \
+				con-name "$ssid" \
+				ifname "$wifi_if" \
+				connection.permissions cms \
+				ssid "$ssid" \
+				wifi-sec.key-mgmt wpa-eap \
+				802-1x.eap tls \
+				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
 				802-1x.tmp-cert ~/config/geteduroam/cert-"$mainssid".pem \
 				802-1x.private-key-password "$passphrase" \
@@ -173,41 +180,76 @@ do
 		;;
 		'TTLS-PAP')
 			nmcli connection add \
-				type wifi con-name "$ssid" ifname "$wifi_if" ssid "$ssid" -- \
-				wifi-sec.key-mgmt wpa-eap 802-1x.eap ttls \
-				802-1x.phase2-auth pap 802-1x.identity "$identity" \
+				type wifi \
+				con-name "$ssid" \
+				ifname "$wifi_if" \
+				ssid "$ssid" \
+				wifi-sec.key-mgmt wpa-eap \
+				802-1x.eap ttls \
+				802-1x.phase2-auth pap \
+				802-1x.identity "$username" \
+				802-1x.anonymous-identity "$identity" \
+				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
 
 		;;
 		'TTLS-MSCHAP')
 			nmcli connection add \
-				type wifi con-name "$ssid" ifname "$wifi_if" ssid "$ssid" -- \
-				wifi-sec.key-mgmt wpa-eap 802-1x.eap ttls \
-				802-1x.phase2-auth mschap 802-1x.identity "$identity" \
+				type wifi \
+				con-name "$ssid" \
+				ifname "$wifi_if" \
+				ssid "$ssid" \
+				wifi-sec.key-mgmt wpa-eap \
+				802-1x.eap ttls \
+				802-1x.phase2-auth mschap \
+				802-1x.identity "$username" \
+				802-1x.anonymous-identity "$identity" \
+				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
 
 		;;
 		'TTLS-MSCHAPv2')
 			nmcli connection add \
-				type wifi con-name "$ssid" ifname "$wifi_if" ssid "$ssid" -- \
-				wifi-sec.key-mgmt wpa-eap 802-1x.eap ttls \
-				802-1x.phase2-auth mschapv2 802-1x.identity "$identity" \
+				type wifi \
+				con-name "$ssid" \
+				ifname "$wifi_if" \
+				ssid "$ssid" \
+				wifi-sec.key-mgmt wpa-eap \
+				802-1x.eap ttls \
+				802-1x.phase2-auth mschapv2 \
+				802-1x.identity "$username" \
+				802-1x.anonymous-identity "$identity" \
+				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
 
 		;;
 		'TTLS-EAP-MSCHAPv2')
 			nmcli connection add \
-				type wifi con-name "$ssid" ifname "$wifi_if" ssid "$ssid" -- \
-				wifi-sec.key-mgmt wpa-eap 802-1x.eap ttls \
-				802-1x.phase2-auth eap-mschapv2 802-1x.identity "$identity" \
+				type wifi \
+				con-name "$ssid" \
+				ifname "$wifi_if" \
+				ssid "$ssid" \
+				wifi-sec.key-mgmt wpa-eap \
+				802-1x.eap ttls \
+				802-1x.phase2-auth eap-mschapv2 \
+				802-1x.identity "$username" \
+				802-1x.anonymous-identity "$identity" \
+				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
 
 		;;
 		'PEAP-MSCHAPv2')
 			nmcli connection add \
-				type wifi con-name "$ssid" ifname "$wifi_if" ssid "$ssid" -- \
-				wifi-sec.key-mgmt wpa-eap 802-1x.eap peap \
-				802-1x.phase2-auth mschapv2 802-1x.identity "$identity" \
+				type wifi \
+				con-name "$ssid" \
+				ifname "$wifi_if" \
+				ssid "$ssid" \
+				wifi-sec.key-mgmt wpa-eap \
+				802-1x.eap peap \
+				802-1x.phase2-auth mschapv2 \
+				802-1x.identity "$username" \
+				802-1x.anonymous-identity "$identity" \
+				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
 
 		;;
