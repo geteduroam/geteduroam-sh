@@ -102,7 +102,8 @@ do
 done)"
 type="$(parse_auth_method "$authMethod")"
 server_ids="$(printf %s "$authMethod" | get_tag_content ServerID)"
-test -n "$type" || { printf %s\\n 'Unsupported eap-config' >&2; exit 2; }
+test -n "$type" || { printf %s\\n 'Unsupported eap-config; no supported AuthenticationMethod' >&2; exit 2; }
+test -n "$server_ids" || { printf %s\\n 'Unsupported eap-config; no ServerID set' >&2; exit 2; }
 
 
 # Collect non-TLS authentication parameters
