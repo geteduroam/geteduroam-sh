@@ -128,14 +128,14 @@ then
 		esac
 	done
 
-	#	# TODO: figure out how to set password through nmcli
-	#	password="$(printf %s "$authMethod" | get_tag_content Password)"
-	#	test -n "$password" || printf 'Password: '
-	#	# shellcheck disable=SC2039
-	#	# We try to use "secret" but if it doesn't work we have a fallback
-	#	test -n "$password" || read -sr password 2>/dev/null
-	#	test -n "$password" || printf '\rWARNING: Password will print on screen\nPassword: '
-	#	test -n "$password" || read -r password
+	# TODO: figure out how to set password through nmcli
+	password="$(printf %s "$authMethod" | get_tag_content Password)"
+	test -n "$password" || printf 'Password: '
+	# shellcheck disable=SC2039
+	# We try to use "secret" but if it doesn't work we have a fallback
+	test -n "$password" || read -sr password 2>/dev/null
+	test -n "$password" || printf '\rWARNING: Password will print on screen\nPassword: '
+	test -n "$password" || read -r password
 fi
 
 identity="$(printf %s "$xml" | get_tag_content OuterIdentity)"
@@ -190,6 +190,7 @@ do
 				802-1x.eap ttls \
 				802-1x.phase2-auth pap \
 				802-1x.identity "$username" \
+				802-1x.password "$password" \
 				802-1x.anonymous-identity "$identity" \
 				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
@@ -205,6 +206,7 @@ do
 				802-1x.eap ttls \
 				802-1x.phase2-auth mschap \
 				802-1x.identity "$username" \
+				802-1x.password "$password" \
 				802-1x.anonymous-identity "$identity" \
 				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
@@ -220,6 +222,7 @@ do
 				802-1x.eap ttls \
 				802-1x.phase2-auth mschapv2 \
 				802-1x.identity "$username" \
+				802-1x.password "$password" \
 				802-1x.anonymous-identity "$identity" \
 				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
@@ -235,6 +238,7 @@ do
 				802-1x.eap ttls \
 				802-1x.phase2-auth eap-mschapv2 \
 				802-1x.identity "$username" \
+				802-1x.password "$password" \
 				802-1x.anonymous-identity "$identity" \
 				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
@@ -250,6 +254,7 @@ do
 				802-1x.eap peap \
 				802-1x.phase2-auth mschapv2 \
 				802-1x.identity "$username" \
+				802-1x.password "$password" \
 				802-1x.anonymous-identity "$identity" \
 				802-1x.altsubject-matches "$server_ids" \
 				802-1x.ca-cert ~/.config/geteduroam/ca-"$mainssid".pem \
